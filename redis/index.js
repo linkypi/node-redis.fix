@@ -838,25 +838,30 @@ function handle_offline_command (self, command_obj) {
     var command = command_obj.command;
     var err, msg;
     if (self.closing || !self.enable_offline_queue) {
-        command = command.toUpperCase();
-        if (!self.closing) {
-            if (self.stream.writable) {
-                msg = 'The connection is not yet established and the offline queue is deactivated.';
-            } else {
-                msg = 'Stream not writeable.';
-            }
-        } else {
-            msg = 'The connection is already closed.';
+        if(self.stream==null || self.stream.destroyed){
+          retry_connection(self, null);
+        }else{
+          self.offline_queue.push(command_obj);
         }
-        err = new errorClasses.AbortError({
-            message: command + " can't be processed. " + msg,
-            code: 'NR_CLOSED',
-            command: command
-        });
-        if (command_obj.args.length) {
-            err.args = command_obj.args;
-        }
-        utils.reply_in_order(self, command_obj.callback, err);
+        // command = command.toUpperCase();
+        // if (!self.closing) {
+        //     if (self.stream.writable) {
+        //         msg = 'The connection is not yet established and the offline queue is deactivated.';
+        //     } else {
+        //         msg = 'Stream not writeable.';
+        //     }
+        // } else {
+        //     msg = 'The connection is already closed.';
+        // }
+        // err = new errorClasses.AbortError({
+        //     message: command + " can't be processed. " + msg,
+        //     code: 'NR_CLOSED',
+        //     command: command
+        // });
+        // if (command_obj.args.length) {
+        //     err.args = command_obj.args;
+        // }
+        // utils.reply_in_order(self, command_obj.callback, err);
     } else {
         debug('Queueing ' + command + ' for next server connection.');
         self.offline_queue.push(command_obj);
@@ -882,7 +887,6 @@ RedisClient.prototype.internal_send_command = function (command_obj) {
 
     if (this.ready === false || this.stream.writable === false) {
 
-        // retry_connection(this,null);
         // Handle offline commands right away
         handle_offline_command(this, command_obj);
         return false; // Indicate buffering
